@@ -1,0 +1,49 @@
+(function(root){
+'use strict';
+const activities=[
+ ['cert','공부','자격증 공부','✎',[0,7,0,0],-2,7,'합격에 한 걸음 더'],['lang','공부','언어 공부','A',[0,1,0,7],-2,6,'오늘 외운 한 문장'],['history','공부','역사 공부','▤',[0,4,4,0],-1,3,'과거에서 배운 힌트'],
+ ['weight','운동','웨이트','🏋',[8,0,0,0],-2,-3,'어제보다 하나 더'],['pilates','운동','필라테스','✿',[5,0,2,0],-2,-6,'몸도 마음도 곧게'],['run','운동','러닝','↗',[5,0,0,0],0,-8,'생각을 비우는 달리기'],
+ ['store','아르바이트','편의점','▣',[0,2,0,1],7,5,'어서 오세요!'],['food','아르바이트','식당','♨',[3,0,2,0],9,9,'바쁜 만큼 쌓이는 경험'],['park','아르바이트','놀이공원','♧',[0,0,4,3],8,7,'웃음을 나누는 하루'],
+ ['sleep','휴식','집에서 푹 쉬기','☁',[2,0,0,0],0,-18,'오늘은 충전하는 날'],['culture','휴식','문화생활','♫',[0,0,6,0],-3,-12,'마음에 영감을 채워요'],['friend','휴식','친구 만나기','☕',[0,0,3,2],-2,-14,'수다 한 잔의 여유']
+].map(([id,group,name,icon,stats,money,stress,desc])=>({id,group,name,icon,stats,money,stress,desc}));
+const items=[
+ ['t0','상의','화이트 베이직 티','일반','#f8f5e9'],['t1','상의','블랙 베이직 티','일반','#42434b'],['t2','상의','스트라이프 티','일반','#f6f1e5'],['t3','상의','오버핏 후드티','일반','#a6c8b6'],['t4','상의','아이보리 니트','레어','#e8d4ad'],['t5','상의','면접용 셔츠','레어','#b7d1e8'],
+ ['b0','하의','일자 청바지','일반','#7d9ec5'],['b1','하의','와이드 청바지','일반','#55749b'],['b2','하의','블랙 미니스커트','일반','#484857'],['b3','하의','플리츠스커트','레어','#b8a4c9'],['b4','하의','베이지 슬랙스','레어','#c4af8c'],
+ ['d0','원피스','편안한 저지 원피스','일반','#a5bba9'],['d1','원피스','플라워 원피스','레어','#e8a6ad'],['d2','원피스','클래식 블랙 원피스','스페셜','#404657'],
+ ['h0','헤어','내추럴 단발','일반','#574238'],['h1','헤어','깔끔한 숏컷','일반','#443b39'],['h2','헤어','포니테일','레어','#79513c'],['h3','헤어','반묶음 헤어','레어','#6b443b'],['h4','헤어','긴 웨이브','스페셜','#a57653'],['h5','헤어','애쉬 컬러 보브','스페셜','#9890a4']
+].map(([id,type,name,rarity,color])=>({id,type,name,rarity,color}));
+const defaults=['t0','b0','h0'];
+function fresh(c){return {version:1,week:1,phase:'planning',stats:[20,20,20,20],money:30,earned:0,stress:20,counts:{},flags:{},plan:[],diary:[],owned:c?.owned||[...defaults],shards:c?.shards||0,outfit:c?.outfit||{top:'t0',bottom:'b0',hair:'h0',dress:null},ending:null};}
+const clone=s=>JSON.parse(JSON.stringify(s)),clamp=v=>Math.max(0,Math.min(100,v));
+const jobs=s=>['store','food','park'].reduce((n,id)=>n+(s.counts[id]||0),0);
+function boost(s,v){s.stats=s.stats.map((n,i)=>clamp(n+(v[i]||0)));}
+function addDiary(s,title,body){s.diary.unshift({week:s.week,title,body});}
+function simulate(s,ids){const n=clone(s),log=[];if(s.phase!=='planning'||ids.length!==3)return {error:'활동 3개를 채워 주세요.'};
+ for(const id of ids){const a=activities.find(x=>x.id===id);if(!a)return {error:'선택할 수 없는 활동입니다.'};if(n.money+a.money<0)return {error:a.name+'에 필요한 돈이 부족해요. 앞쪽 일정에 아르바이트를 넣어 보세요.'};const tired=n.stress>=80;boost(n,a.stats.map(v=>tired?Math.floor(v/2):v));n.money+=a.money;if(a.group==='아르바이트')n.earned+=a.money;n.stress=clamp(n.stress+a.stress);n.counts[id]=(n.counts[id]||0)+1;log.push(a.name+(tired?' (지쳐서 성장량 절반)':''));}
+ const shortage=Math.max(0,3-n.money);n.money=Math.max(0,n.money-3);if(shortage)n.stress=clamp(n.stress+10);n.plan=[];addDiary(n,'이번 주의 작은 발걸음',log.join(' → ')+'\n'+diaryLine(ids)+'\n생활비 3만 원'+(shortage?' · 생활비 부족으로 스트레스 +10':''));n.phase=event(n)?'event':n.week===12?'finale':'planning';if(n.phase==='planning')n.week++;return {state:n,log};}
+function diaryLine(ids){if(ids.includes('cert'))return '문제집은 여전히 어렵다. 그래도 어제보다 조금 더 알게 됐다.';if(ids.includes('food'))return '오늘도 “주문이요!”를 수없이 들었다. 나도 내 삶의 다음 주문을 고민했다.';if(ids.includes('park'))return '누군가의 즐거운 하루를 만들었다. 내 하루도 조금 밝아졌다.';if(ids.includes('sleep'))return '충분히 쉬는 것도 내일을 준비하는 방법이다.';return '오늘의 내가 어제보다 한 걸음 앞에 있다.';}
+function choice(id,label,desc,apply){return {id,label,desc,apply};}
+function event(s){const w=s.week,f=s.flags;
+ if(w===1)return {title:'빈 이력서를 열었다',icon:'✉',body:'새 문서의 커서가 깜빡인다. 앞으로 12주, 나는 어디를 향해 가고 싶을까? 지금의 선택이 미래를 정하지는 않는다.',choices:['대기업 취업','중소기업 취업','나만의 사업'].map((v,i)=>choice('goal'+i,v,'관심 진로를 일기에 기록해요.',n=>{n.flags.goal=v;}))};
+ if(w===3)return {title:'친구가 보내온 채용박람회 링크',icon:'🎟',body:'“여기 한번 가 봐!” 취업과 창업, 여러 갈래의 길이 한곳에 모여 있다.',choices:[choice('big','대기업 설명회','지식 +3 · 삼성 지원 조건 확인',n=>{boost(n,[0,3,0,0]);n.flags.bigInfo=true;}),choice('small','중소기업 상담','언어 +3 · 채용 담당자 연락처',n=>{boost(n,[0,0,0,3]);n.flags.contact=true;}),choice('biz','창업 상담','감수성 +3 · 창업 정보',n=>{boost(n,[0,0,3,0]);n.flags.bizInfo=true;})]};
+ if(w===5){const ok=(s.counts.cert||0)>=4&&s.stats[1]>=45&&s.money>=3;return {title:'자격증 시험 접수 마감',icon:'✎',body:ok?'준비한 만큼 보여줄 시간이다. 시험장에 들어가 볼까?':'자격증 공부 4회, 지식 45, 응시료 3만 원이 필요하다. 준비가 부족해도 모의시험은 볼 수 있다.',choices:[...(ok?[choice('exam','자격증 시험 응시','3만 원 사용 · 자격증 취득',n=>{n.money-=3;n.flags.cert=true;})]:[]),choice('mock','무료 모의시험 보기','지식 +3 · 이번 회차 자격증은 미취득',n=>boost(n,[0,3,0,0]))]};}
+ if(w===6&&jobs(s)>=3)return {title:'알바하면서 발견한 문제',icon:'💡',body:'반복하던 일에서 개선할 점이 보인다. 편의점의 재고, 식당의 주문 동선, 놀이공원의 안내. 이 경험을 어떻게 써 볼까?',choices:[choice('improve','업무 개선안 제안','업무 개선 경험 획득 · 중소기업 지원에 활용',n=>{n.flags.improve=true;}),choice('idea','내 가게 아이디어로 정리','사업 아이디어 획득 · 시험 판매 가능',n=>{n.flags.idea=true;const cs=['store','food','park'];n.flags.business=cs.sort((a,b)=>(n.counts[b]||0)-(n.counts[a]||0))[0];}),choice('rest','오늘은 쉬어 가기','스트레스 -10',n=>{n.stress=clamp(n.stress-10);})]};
+ if(w===8)return {title:'첫 모의면접',icon:'🎙',body:'“자기소개 부탁드립니다.” 머릿속이 하얘졌지만, 여기는 연습할 수 있는 곳이다.',choices:[choice('knowledge','직무 답변 연습','지식 +4 · 면접 준비 완료',n=>{boost(n,[0,4,0,0]);n.flags.interview=true;}),choice('speech','말하기 연습','언어 +4 · 면접 준비 완료',n=>{boost(n,[0,0,0,4]);n.flags.interview=true;}),choice('story','경험을 이야기로 정리','감수성 +4 · 면접 준비 완료',n=>{boost(n,[0,0,4,0]);n.flags.interview=true;})]};
+ if(w===9&&f.idea)return marketEvent(s);
+ if(w===10)return {title:'최종 채용공고가 떴다',icon:'📋',body:'지원서를 보낼 때다. 준비 상황은 진로 노트에서 확인할 수 있다. 지원해도 마지막 진로는 직접 선택한다.',choices:[choice('both','두 곳 모두 지원','삼성·중소기업 지원서 제출',n=>{n.flags.applyBig=true;n.flags.applySmall=true;}),choice('big','삼성 지원','삼성 지원서 제출',n=>{n.flags.applyBig=true;}),choice('small','중소기업 지원','중소기업 지원서 제출',n=>{n.flags.applySmall=true;}),choice('none','이번에는 지원하지 않기','다른 가능성을 준비한다',()=>{})]};
+ if(w===11)return {title:'합격 전날에도 월세는 나온다',icon:'☾',body:'마지막 한 주를 앞두고 있다. 지금 나에게 가장 필요한 것은 무엇일까?',choices:[choice('study','마지막 집중 준비','지식·언어 +3 · 스트레스 +10',n=>{boost(n,[0,3,0,3]);n.stress=clamp(n.stress+10);}),choice('work','단기 아르바이트','보유금·가챠 사용 가능액 +8만 원 · 스트레스 +8',n=>{n.money+=8;n.earned+=8;n.stress=clamp(n.stress+8);}),choice('rest','컨디션 회복','스트레스 -15',n=>{n.stress=clamp(n.stress-15);}),...(f.idea&&!f.market&&s.money>=8?[choice('retry','시험 판매 재도전','8만 원 사용 · 감수성 40, 알바 5회면 성공',n=>sell(n))]:[])]};return null;}
+function sell(n){n.money-=8;const success=n.stats[2]>=40&&jobs(n)>=5;n.money+=success?12:3;if(success)n.flags.market=true;return success;}
+function marketEvent(s){return {title:'작게라도 팔아볼까?',icon:'🛍',body:'작은 시험 판매를 열어 보자. 비용은 8만 원. 감수성 40 이상, 아르바이트 5회 이상이면 고객의 반응을 검증할 수 있다.',choices:[...(s.money>=8?[choice('sell','시험 판매 시작','성공 매출 12만 원 / 미달 매출 3만 원',n=>sell(n))]:[]),choice('skip','이번에는 준비 더 하기','실패하거나 미뤘다면 11주에 다시 도전 가능',()=>{})]};}
+function resolve(s,id){if(s.phase!=='event')return null;const ev=event(s),c=ev?.choices.find(c=>c.id===id);if(!c)return null;const n=clone(s);c.apply(n);addDiary(n,ev.title,c.label+'\n'+(id==='sell'||id==='retry'?(n.flags.market?'첫 판매 성공! 시장 검증을 마쳤다.':'예상보다 조용했다. 감수성과 알바 경험을 더 쌓아 보자.'):c.desc));if(n.week===12)n.phase='finale';else{n.week++;n.phase='planning';}return n;}
+function endings(s){const f=s.flags,st=s.stats,check=(label,ok)=>({label,ok:!!ok});return [
+ {id:'samsung',name:'삼성 입사',icon:'🏢',text:'합격이라는 두 글자를 세 번이나 다시 읽었다. 출근 알람을 맞추는 날이 정말 왔다.',checks:[check('삼성 지원서 제출',f.applyBig),check('지식 75',st[1]>=75),check('언어 65',st[3]>=65),check('체력 40',st[0]>=40),check('자격증 취득 (5주)',f.cert),check('면접 준비 완료 (8주)',f.interview)]},
+ {id:'small',name:'중소기업 입사',icon:'🌱',text:'첫 출근. 내 이름이 붙은 자리가 있었다. 오늘부터 하나씩 배워보기로 했다.',checks:[check('중소기업 지원서 제출',f.applySmall),check('지식 45',st[1]>=45),check('언어 40',st[3]>=40),check('체력 35',st[0]>=35),check('면접 준비 완료',f.interview),check('담당자 연락처 또는 업무 개선 경험',f.contact||f.improve)]},
+ {id:'business',name:'자영업 시작',icon:'🛍',text:'시험 운영을 마치고 작은 가게를 열었다. 첫 주문 알림이 왔다. 사장은 나였다.',checks:[check('지식 40',st[1]>=40),check('감수성 45',st[2]>=45),check('체력 40',st[0]>=40),check('아르바이트 6회',jobs(s)>=6),check('시장 검증 완료',f.market),check('보유금 35만 원',s.money>=35)]},
+ {id:'rest',name:'백수 엔딩',icon:'☁',text:'12주가 지났다. 아직 직업 칸은 비어 있다. 그래도 이제는 내가 무엇을 할 수 있는지 조금 안다.',checks:[]}
+ ].map(e=>({...e,available:e.checks.every(c=>c.ok)}));}
+function finish(s,id){if(s.phase!=='finale')return null;const e=endings(s).find(x=>x.id===id&&x.available);if(!e)return null;const n=clone(s);n.phase='ended';n.ending=id;addDiary(n,e.name,e.text);return n;}
+function draw(s,rng=Math.random){if(s.money<3||s.earned<3)return {error:'보유금과 가챠 사용 가능액이 각각 3만 원 이상 필요해요. 아르바이트로 모아 보세요.'};const n=clone(s);n.money-=3;n.earned-=3;const r=rng(),rarity=r<.65?'일반':r<.93?'레어':'스페셜',pool=items.filter(x=>x.rarity===rarity&&!defaults.includes(x.id)),item=pool[Math.min(pool.length-1,Math.floor(rng()*pool.length))],duplicate=n.owned.includes(item.id);if(duplicate)n.shards++;else n.owned.push(item.id);return {state:n,item,duplicate};}
+function exchange(s,id){if(s.shards<3||s.owned.includes(id)||!items.some(i=>i.id===id))return null;const n=clone(s);n.shards-=3;n.owned.push(id);return n;}
+function wear(s,id){const item=items.find(x=>x.id===id);if(!item||!s.owned.includes(id))return null;const n=clone(s),key={상의:'top',하의:'bottom',헤어:'hair',원피스:'dress'}[item.type];n.outfit[key]=id;if(key==='top'||key==='bottom')n.outfit.dress=null;return n;}
+const api={activities,items,defaults,fresh,simulate,event,resolve,endings,finish,draw,exchange,wear,jobs};if(typeof module!=='undefined')module.exports=api;else root.Game=api;
+})(typeof window!=='undefined'?window:globalThis);
